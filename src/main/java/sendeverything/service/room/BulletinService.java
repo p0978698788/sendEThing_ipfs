@@ -73,6 +73,8 @@ public class BulletinService {
 
         boolean isOwner = room.getOwner() != null && currentUser != null && room.getOwner().equals(currentUser);
         roomResponse.setIsOwner(isOwner);
+        boolean isMember = userRoomRepository.findByUserAndRoom(currentUser, room) != null;
+        roomResponse.setIsMember(isMember);
 
         return roomResponse;
     }

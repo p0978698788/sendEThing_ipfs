@@ -24,6 +24,7 @@ public class RoomResponse {
     private RoomType roomType;
     private LocalDateTime createTime;
     private Boolean isOwner;
+    private Boolean isMember;
     private List<DBRoomFile> dbRoomFiles = new ArrayList<>();
 
 }
