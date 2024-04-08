@@ -161,5 +161,11 @@ public class BulletinService {
         return buildRoomResponse(room, false);  // 假設在這個方法中不包含 dbRoomFiles
     }
 
+    public Room findByRoomCode1(String roomCode) {
+        Room room = roomRepository.findByRoomCode(roomCode);
+        System.out.println(room);
+        return room;  // 假設在這個方法中包含 dbRoomFiles
+    }
+
 
 }

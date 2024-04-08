@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -76,7 +77,8 @@ public class RoomIPFSUtils {
     public  synchronized DBRoomFile storeFile(String fileId, String outputFileName, Optional<User> user,Long filesize,String description,String roomCode){
         // 这里不需要再次检查文件是否存在，因为这已在调用此方法之前检查过
         Room room=roomRepository.findByRoomCode(roomCode);
-        DBRoomFile dbFile = new DBRoomFile(outputFileName, fileId, Instant.now());
+        LocalDateTime createTime = LocalDateTime.now();
+        DBRoomFile dbFile = new DBRoomFile(outputFileName, fileId, createTime);
         dbFile.setFileId(fileId); // 设置 ID
         dbFile.setVerificationCode(generateUniqueVerificationCode());
         dbFile.setFileSize(filesize);

@@ -8,6 +8,7 @@ import org.hibernate.annotations.GenericGenerator;
 import sendeverything.models.User;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,7 +38,7 @@ public class DBRoomFile {
     private String verificationCode;
 
     @OrderBy("timestamp DESC")
-    Instant timestamp = Instant.now();
+    LocalDateTime timestamp ;
 
     private String shortUrl;
     private String description;
@@ -57,7 +58,7 @@ public class DBRoomFile {
 
     }
 
-    public DBRoomFile(String fileName, String fileId,Instant timestamp) {
+    public DBRoomFile(String fileName, String fileId, LocalDateTime timestamp) {
         this.fileName = fileName;
         this.fileId = fileId;
         this.timestamp = timestamp;
