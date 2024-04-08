@@ -7,10 +7,12 @@ import sendeverything.exception.RoomNotFoundException;
 import sendeverything.models.User;
 import sendeverything.models.room.Room;
 import sendeverything.models.room.RoomType;
+import sendeverything.models.room.UserRoom;
 import sendeverything.payload.response.RoomResponse;
 import sendeverything.repository.DBRoomFileRepository;
 import sendeverything.repository.RoomRepository;
 import sendeverything.repository.UserRepository;
+import sendeverything.repository.UserRoomRepository;
 
 import javax.sql.rowset.serial.SerialBlob;
 import java.io.ByteArrayOutputStream;
@@ -33,11 +35,13 @@ public class BulletinService {
 
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final UserRoomRepository userRoomRepository;
 
     @Autowired
-    public BulletinService(RoomRepository roomRepository, UserRepository userRepository) {
+    public BulletinService(RoomRepository roomRepository, UserRepository userRepository, UserRoomRepository userRoomRepository) {
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
+        this.userRoomRepository = userRoomRepository;
     }
 
 
@@ -174,9 +178,17 @@ public class BulletinService {
         return room;  // 假設在這個方法中包含 dbRoomFiles
     }
 
-    public List<Room> getCreatedRooms(User user) {
-        return roomRepository.findByOwner(user);
+
+    public void joinRoom(User user, Room room) {
+        UserRoom userRoom = new UserRoom();
+        userRoom.setUser(user);
+        userRoom.setRoom(room);
+        userRoom.setJoinedAt(LocalDateTime.now());
+        userRoomRepository.save(userRoom);
     }
 
+    public boolean hasUserJoinedRoom(User user, Room room) {
+        return userRoomRepository.findByUserAndRoom(user, room) != null;
+    }
 
 }

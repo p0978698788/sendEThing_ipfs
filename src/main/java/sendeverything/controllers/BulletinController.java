@@ -60,9 +60,11 @@ public class BulletinController {
         return ResponseEntity.ok(roomResponses);
     }
     @PostMapping("/accessRoom")
-    public ResponseEntity<?> accessRoom(@RequestBody RoomRequest RoomRequest, HttpServletResponse response) {
+    public ResponseEntity<?> accessRoom(@RequestBody RoomRequest RoomRequest, HttpServletResponse response,Principal principal){
         String roomCode = RoomRequest.getRoomCode();
         String password = RoomRequest.getPassword();
+        Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
+        Room room= bulletinService.findByRoomCode1(roomCode);
         RoomResponse roomResponse = bulletinService.accessRoom(roomCode, password);
         if (roomResponse != null ) {
             // 登入成功，設置 cookie
@@ -72,8 +74,8 @@ public class BulletinController {
             cookie.setPath("/"); // 設置 cookie 的路徑，如果需要限制為特定路徑，可以進行調整
 
             cookie.setMaxAge(60 * 60 * 24); // 設置 cookie 的有效期，例如這裡是一個小時
-
             response.addCookie(cookie);
+            bulletinService.joinRoom(optionalUser.orElse(null),room );
             System.out.println("cookie: "+cookie.getValue());
             return ResponseEntity.ok("Access Room Success: "+roomCode);
         } else {
