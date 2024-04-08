@@ -54,8 +54,10 @@ public class BulletinController {
         return new RoomCodeResponse(roomCode);
     }
     @GetMapping("/getAllRooms")
-    public List<RoomResponse> getAllRooms() {
-        return bulletinService.getAllRooms();
+    public ResponseEntity<List<RoomResponse>> getAllRooms(Principal principal) {
+        List<RoomResponse> roomResponses = bulletinService.getAllRooms(principal);
+        System.out.println("roomResponses: "+roomResponses);
+        return ResponseEntity.ok(roomResponses);
     }
     @PostMapping("/accessRoom")
     public ResponseEntity<?> accessRoom(@RequestBody RoomRequest RoomRequest, HttpServletResponse response) {
@@ -123,6 +125,14 @@ public class BulletinController {
 
         return ResponseEntity.ok(contentResponse);
     }
+
+//    @GetMapping("/getCreatedRoom")
+//    public RoomResponse getCreatedRoom(Principal principal) {
+//        Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
+//        List<Room> rooms = bulletinService.getCreatedRooms(optionalUser.orElse(null));
+//
+//
+//    }
 
 
 

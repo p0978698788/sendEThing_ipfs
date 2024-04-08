@@ -19,6 +19,7 @@ public interface DBRoomFileRepository extends JpaRepository<DBRoomFile, Long> {
     List<String> findFileNamesByUserIdOrderByTimestampDesc(@Param("userId") Long userId);
 
     List<FileNameAndVerifyCodeProjection> findAllProjectedBy();
+    Optional<DBRoomFile>findByFileIdAndRoom_RoomCode(String fileId, String roomCode);
 
 
 

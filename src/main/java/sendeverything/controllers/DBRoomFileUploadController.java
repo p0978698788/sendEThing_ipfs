@@ -59,10 +59,11 @@ public class DBRoomFileUploadController {
                                          Principal principal) throws IOException {
         System.out.println("Principal: " + principal);
         Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
+        Optional<DBRoomFile> optionalDbFile = dbRoomFileRepository.findByFileIdAndRoom_RoomCode(fileId, RoomCode);
+
 
         // 先尝试查找文件，避免不必要的同步操作
-        DBRoomFile dbFile = dbRoomFileRepository.findByFileId(fileId).orElse(null);
-
+        DBRoomFile dbFile = optionalDbFile.orElse(null);
         if (dbFile == null) {
             synchronized (IPFSUtils.class) {
                 // 再次检查确保没有其他线程已经创建了文件
@@ -72,9 +73,8 @@ public class DBRoomFileUploadController {
                 }
             }
         }
+        DBRoomFileChunk dbRoomFileChunk = dbRoomFileChunkRepository.findByChunkIdAndDbRoomFile_FileId(chunkId, fileId).orElse(null);
 
-        System.out.println("Uploading chunk " + chunkNumber + " of file " + fileId);
-        DBRoomFileChunk  dbRoomFileChunk =  dbRoomFileChunkRepository.findByChunkIdAndDbRoomFile_FileId(chunkId, fileId).orElse(null);
         if (dbRoomFileChunk == null) {
             IPFSUtils.uploadPart(chunkNumber, dbFile, chunkId, fileChunk, totalChunks);
 
@@ -128,10 +128,11 @@ public class DBRoomFileUploadController {
             }
             String encodedFileName = URLEncoder.encode(dbFile.getFileName(), StandardCharsets.UTF_8);
             System.out.println("dbFile: " + dbFile.getDbRoomFileChunks());
-//
+            response.setHeader(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION);
             response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(dbFile.getFileSize()));
             response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFileName);
             response.setHeader(HttpHeaders.CONTENT_TYPE,"application/octet-stream");
+
 
 
 

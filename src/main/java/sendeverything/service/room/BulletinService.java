@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.Principal;
 import java.sql.Blob;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -50,19 +51,28 @@ public class BulletinService {
         return room.getRoomCode();
     }
 
-    public List<RoomResponse> getAllRooms() {
+    public List<RoomResponse> getAllRooms(Principal principal) {
+        Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
         List<Room> rooms = roomRepository.findAll();
-        return rooms.stream().map(this::convertToRoomResponse).collect(Collectors.toList());
+        User currentUser = optionalUser.orElse(null);
+        return rooms.stream().map(room -> convertToRoomResponse(room, currentUser)).collect(Collectors.toList());
     }
-    private RoomResponse convertToRoomResponse(Room room) {
-        RoomResponse response = new RoomResponse();
-        response.setRoomCode(room.getRoomCode());
-        response.setTitle(room.getTitle());
-        response.setDescription(room.getDescription());
-        response.setRoomType(room.getRoomType());
-        response.setCreateTime(room.getCreateTime());
-        return response;
+
+    private RoomResponse convertToRoomResponse(Room room, User currentUser) {
+        RoomResponse roomResponse = new RoomResponse(); // 假设您已有一个构造RoomResponse的方法
+        roomResponse.setRoomCode(room.getRoomCode());
+        roomResponse.setTitle(room.getTitle());
+        roomResponse.setDescription(room.getDescription());
+        roomResponse.setRoomType(room.getRoomType());
+        roomResponse.setCreateTime(room.getCreateTime());
+        // 设置RoomResponse的其他属性...
+
+        boolean isOwner = room.getOwner() != null && currentUser != null && room.getOwner().equals(currentUser);
+        roomResponse.setIsOwner(isOwner);
+
+        return roomResponse;
     }
+
 
     private String blobToBase64String(Blob blob) {
         if (blob == null) {
@@ -130,7 +140,7 @@ public class BulletinService {
         }
         return hexString.toString();
     }
-    private RoomResponse buildRoomResponse(Room room, boolean includeDbRoomFiles) {
+    private RoomResponse buildRoomResponse(Room room) {
         if (room == null) {
             return null;
         }
@@ -141,16 +151,13 @@ public class BulletinService {
         response.setRoomType(room.getRoomType());
         response.setCreateTime(room.getCreateTime());
         response.setImage(blobToBase64String(room.getImage()));
-        if (includeDbRoomFiles) {
-            response.setDbRoomFiles(room.getDbRoomFiles());
-        }
         return response;
     }
 
     public RoomResponse findByRoomCode(String roomCode) {
         Room room = roomRepository.findByRoomCode(roomCode);
         System.out.println(room);
-        return buildRoomResponse(room, true);  // 假設在這個方法中包含 dbRoomFiles
+        return buildRoomResponse(room);  // 假設在這個方法中包含 dbRoomFiles
     }
 
     public RoomResponse accessRoom(String roomCode, String password) {
@@ -158,13 +165,17 @@ public class BulletinService {
         if (room == null) {
             throw new RoomNotFoundException("Room with the password is Incorrect.");
         }
-        return buildRoomResponse(room, false);  // 假設在這個方法中不包含 dbRoomFiles
+        return buildRoomResponse(room);  // 假設在這個方法中不包含 dbRoomFiles
     }
 
     public Room findByRoomCode1(String roomCode) {
         Room room = roomRepository.findByRoomCode(roomCode);
         System.out.println(room);
         return room;  // 假設在這個方法中包含 dbRoomFiles
+    }
+
+    public List<Room> getCreatedRooms(User user) {
+        return roomRepository.findByOwner(user);
     }
 
 

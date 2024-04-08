@@ -23,6 +23,7 @@ public class RoomResponse {
     private String image;
     private RoomType roomType;
     private LocalDateTime createTime;
+    private Boolean isOwner;
     private List<DBRoomFile> dbRoomFiles = new ArrayList<>();
 
 }
