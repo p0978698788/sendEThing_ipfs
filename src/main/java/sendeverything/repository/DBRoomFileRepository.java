@@ -17,25 +17,14 @@ import java.util.Optional;
 public interface DBRoomFileRepository extends JpaRepository<DBRoomFile, Long> {
     @Query("SELECT df.fileName FROM DatabaseFile df WHERE df.user.id = :userId ORDER BY df.timestamp DESC")
     List<String> findFileNamesByUserIdOrderByTimestampDesc(@Param("userId") Long userId);
-
-    List<FileNameAndVerifyCodeProjection> findAllProjectedBy();
     Optional<DBRoomFile>findByFileIdAndRoom_RoomCode(String fileId, String roomCode);
-
-
-
-
-    Optional<DBRoomFile> findByFileName(String fileName);
-
     Optional<DBRoomFile> findByFileId(String fileId);
-
-
-
     Optional<DBRoomFile> findByVerificationCode(String verificationCode);
-    void deleteById(String id);
-    Optional<DBRoomFile> findByShortUrl(String shortUrl);
 
 
 
 
-    List<DBRoomFile> findByUserIdIsNullAndTimestampBefore(Instant time);
+
+
+
 }

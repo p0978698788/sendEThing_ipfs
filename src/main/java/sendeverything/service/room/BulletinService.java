@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import sendeverything.exception.RoomNotFoundException;
 import sendeverything.models.User;
+import sendeverything.models.room.BoardType;
 import sendeverything.models.room.Room;
 import sendeverything.models.room.RoomType;
 import sendeverything.models.room.UserRoom;
@@ -45,21 +46,24 @@ public class BulletinService {
     }
 
 
-    public String saveRoom(String title, String roomDescription , String roomPassword , MultipartFile roomImage , Optional<User> user, RoomType roomType ) throws Exception {
+    public String saveRoom(String title, String roomDescription , String roomPassword , MultipartFile roomImage , Optional<User> user, RoomType roomType, BoardType boardType) throws Exception {
         LocalDateTime createTime = LocalDateTime.now();
         Blob image = convertToBlob(roomImage);
 
-        Room room = new Room(generateRoomCode(8),title,roomDescription,roomPassword,image,roomType,createTime);
+        Room room = new Room(generateRoomCode(8),title,roomDescription,roomPassword,image,roomType,boardType,createTime);
         user.ifPresent(room::setOwner);
         roomRepository.save(room);
         return room.getRoomCode();
     }
 
-    public List<RoomResponse> getAllRooms(Principal principal) {
+    public List<RoomResponse> getRoomsByType(Principal principal, BoardType boardType) {
         Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
-        List<Room> rooms = roomRepository.findAll();
         User currentUser = optionalUser.orElse(null);
-        return rooms.stream().map(room -> convertToRoomResponse(room, currentUser)).collect(Collectors.toList());
+
+        List<Room> rooms = roomRepository.findByBoardType(boardType); // 假设这个方法已经在RoomRepository中定义
+        return rooms.stream()
+                .map(room -> convertToRoomResponse(room, currentUser))
+                .collect(Collectors.toList());
     }
 
     private RoomResponse convertToRoomResponse(Room room, User currentUser) {

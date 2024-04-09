@@ -33,17 +33,20 @@ public class Room {
     private String members;
     @Enumerated(EnumType.STRING)
     private RoomType roomType;
+    @Enumerated(EnumType.STRING)
+    private BoardType boardType;
     private LocalDateTime createTime;
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DBRoomFile> dbRoomFiles = new ArrayList<>();
 
-    public Room(String roomCode, String title, String description, String password, Blob image, RoomType roomType, LocalDateTime createTime) {
+    public Room(String roomCode, String title, String description, String password, Blob image, RoomType roomType,BoardType boardType, LocalDateTime createTime) {
         this.roomCode = roomCode;
         this.title = title;
         this.description = description;
         this.password = password;
         this.image = image;
         this.roomType = roomType;
+        this.boardType = boardType;
         this.createTime = createTime;
 
     }

@@ -9,10 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import sendeverything.models.User;
-import sendeverything.models.room.DBRoomDTO;
-import sendeverything.models.room.DBRoomFile;
-import sendeverything.models.room.Room;
-import sendeverything.models.room.RoomType;
+import sendeverything.models.room.*;
+import sendeverything.payload.request.BoardRequest;
 import sendeverything.payload.request.RoomRequest;
 import sendeverything.payload.response.RoomCodeResponse;
 import sendeverything.payload.response.RoomContentResponse;
@@ -43,22 +41,25 @@ public class BulletinController {
                                        @RequestParam String roomDescription,
                                        @RequestParam String roomPassword,
                                        @RequestParam MultipartFile roomImage,
+                                       @RequestParam BoardType boardType,
                                        Principal principal) throws Exception {
         Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
         System.out.println("optionalUser: "+optionalUser);
 
-        String roomCode =bulletinService.saveRoom(title,roomDescription,roomPassword,roomImage,optionalUser, roomType);
+        String roomCode =bulletinService.saveRoom(title,roomDescription,roomPassword,roomImage,optionalUser, roomType,boardType);
 
 
 
         return new RoomCodeResponse(roomCode);
     }
-    @GetMapping("/getAllRooms")
-    public ResponseEntity<List<RoomResponse>> getAllRooms(Principal principal) {
-        List<RoomResponse> roomResponses = bulletinService.getAllRooms(principal);
+    @PostMapping("/getAllRooms")
+    public ResponseEntity<List<RoomResponse>> getAllRooms(Principal principal,@RequestBody BoardRequest boardRequest) {
+        BoardType boardType = boardRequest.getBoardType();
+        List<RoomResponse> roomResponses = bulletinService.getRoomsByType(principal,boardType);
         System.out.println("roomResponses: "+roomResponses);
         return ResponseEntity.ok(roomResponses);
     }
+
     @PostMapping("/accessRoom")
     public ResponseEntity<?> accessRoom(@RequestBody RoomRequest RoomRequest, HttpServletResponse response,Principal principal){
         String roomCode = RoomRequest.getRoomCode();
@@ -111,8 +112,10 @@ public class BulletinController {
 //    }
 
     @PostMapping("/showRoomContent")
-    public ResponseEntity<?> showRoomContent(@RequestBody RoomRequest roomRequest) {
+    public ResponseEntity<?> showRoomContent(@RequestBody RoomRequest roomRequest,Principal principal){
         String roomCode = roomRequest.getRoomCode();
+        Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
+
         Room room = bulletinService.findByRoomCode1(roomCode);
         RoomResponse roomResponse = bulletinService.findByRoomCode(roomCode);
         List<DBRoomFile> dbRoomFiles = room.getDbRoomFiles();
@@ -121,6 +124,10 @@ public class BulletinController {
                 .collect(Collectors.toList());
 
         RoomContentResponse contentResponse = new RoomContentResponse();
+        if(room.getOwner().equals(optionalUser.get())){
+            contentResponse.setIsRoomOwner(true);
+        }else {contentResponse.setIsRoomOwner(false);}
+
         contentResponse.setRoomResponse(roomResponse);
         contentResponse.setDbRoomFiles(dtos);
 

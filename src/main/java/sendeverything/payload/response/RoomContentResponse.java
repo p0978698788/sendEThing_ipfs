@@ -8,5 +8,6 @@ import java.util.List;
 @Data
 public class RoomContentResponse {
     private RoomResponse roomResponse;
+    private Boolean isRoomOwner;
     private List<DBRoomDTO> dbRoomFiles;
 }

@@ -41,7 +41,7 @@ public class CodeGenerator {
 
     public Blob generateAndStoreQRCode(int width, int height, DatabaseFile dbFile) throws WriterException, IOException, SQLException {
         // 生成 QR 码
-        String fileDownloadUri = "http:/localhost:8080/surl/"+dbFile.getShortUrl();
+        String fileDownloadUri = "http:/localhost:8080/downloadFileByCode/"+dbFile.getVerificationCode();
 
         // 创建并保存 QRCode 实体
 
@@ -49,8 +49,7 @@ public class CodeGenerator {
     }
     public Blob generateAndStoreQRCode(int width, int height, DBRoomFile dbFile) throws WriterException, IOException, SQLException {
         // 生成 QR 码
-        String fileDownloadUri = "http:/localhost:8080/surl/"+dbFile.getShortUrl();
-
+        String fileDownloadUri = "http:/localhost:8080/downloadRoomFileByCode/"+dbFile.getVerificationCode();
         // 创建并保存 QRCode 实体
 
         return generateQRCodeImage(fileDownloadUri, width, height);

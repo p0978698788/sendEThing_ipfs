@@ -37,11 +37,6 @@ public class DatabaseFile {
 	@OrderBy("timestamp DESC")
 	Instant timestamp = Instant.now();
 
-	private String shortUrl;
-
-	private String uploadId;
-	@Column(name = "`key`")
-	private String key;
 //	private Uploader uploader;
 
 

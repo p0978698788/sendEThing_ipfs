@@ -30,7 +30,7 @@ public interface DatabaseFileRepository extends JpaRepository<DatabaseFile, Stri
 
     Optional<DatabaseFile> findByVerificationCode(String verificationCode);
     void deleteById(String id);
-    Optional<DatabaseFile> findByShortUrl(String shortUrl);
+
 
 
 

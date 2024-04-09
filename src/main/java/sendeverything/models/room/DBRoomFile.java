@@ -28,8 +28,6 @@ public class DBRoomFile {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
-
-
     private String fileName;
     private String fileId;
     @OneToMany(mappedBy = "dbRoomFile", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -40,11 +38,8 @@ public class DBRoomFile {
     @OrderBy("timestamp DESC")
     LocalDateTime timestamp ;
 
-    private String shortUrl;
     private String description;
-    private String uploadId;
-    @Column(name = "`key`")
-    private String key;
+
     @ManyToOne
     @JoinColumn(name = "room_id", nullable = false)
     private Room room;
