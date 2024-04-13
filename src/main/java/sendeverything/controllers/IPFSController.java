@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import sendeverything.models.DatabaseFile;
 import sendeverything.models.FileChunk;
 import sendeverything.models.User;
+import sendeverything.payload.response.FileNameResponse;
 import sendeverything.payload.response.FileResponse;
 import sendeverything.repository.DatabaseFileRepository;
 import sendeverything.repository.FileChunkRepository;
@@ -162,6 +163,7 @@ public class IPFSController {
             if (dbFile == null) {
                 return ResponseEntity.notFound().build();
             }
+
             String encodedFileName = URLEncoder.encode(dbFile.getFileName(), StandardCharsets.UTF_8);
             System.out.println("dbFile: " + dbFile.getFileChunks());
 //
@@ -174,7 +176,7 @@ public class IPFSController {
 
 
 
-            IPFSUtils.writeToResponseStreamConcurrently(dbFile, response);
+            IPFSUtils.writeToResponseStreamConcurrently3(dbFile, response);
             System.out.println(response.getHeader(HttpHeaders.CONTENT_DISPOSITION));
             return ResponseEntity.ok().build();
 
@@ -224,6 +226,22 @@ public class IPFSController {
             IPFSUtils.unpinAndCollectGarbage(dbFile);
 
             return ResponseEntity.ok().body("Cleanup successful for file with verification code: " + verificationCode);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    @GetMapping("/getFileNameByCode/{verificationCode}")
+    public ResponseEntity<?> getFileNameByCode(@PathVariable String verificationCode) {
+        try {
+            DatabaseFile dbFile = IPFSUtils.findByVerificationCode(verificationCode);
+            if (dbFile == null) {
+                return ResponseEntity.notFound().build();
+            }
+            FileResponse fileNameResponse = new FileResponse(dbFile.getFileName());
+
+            return ResponseEntity.ok().body(fileNameResponse);
 
         } catch (Exception e) {
             e.printStackTrace();

@@ -56,6 +56,7 @@ public class DBRoomFileUploadController {
                                          @RequestParam("outputFileName") String outputFileName,
                                          @RequestParam("description") String description,
                                          @RequestParam("roomCode") String RoomCode,
+                                         @RequestParam("uploaderName") String uploaderName,
                                          Principal principal) throws IOException {
         System.out.println("Principal: " + principal);
         Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
@@ -69,7 +70,7 @@ public class DBRoomFileUploadController {
                 // 再次检查确保没有其他线程已经创建了文件
                 dbFile = dbRoomFileRepository.findByFileId(fileId).orElse(null);
                 if (dbFile == null) {
-                    dbFile = IPFSUtils.storeFile(fileId, outputFileName, optionalUser,fileSize,description,RoomCode);
+                    dbFile = IPFSUtils.storeFile(fileId, outputFileName, optionalUser,fileSize,description,RoomCode,uploaderName);
                 }
             }
         }

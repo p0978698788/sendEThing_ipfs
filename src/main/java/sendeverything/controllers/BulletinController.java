@@ -120,13 +120,17 @@ public class BulletinController {
         RoomResponse roomResponse = bulletinService.findByRoomCode(roomCode);
         List<DBRoomFile> dbRoomFiles = room.getDbRoomFiles();
         List<DBRoomDTO> dtos = dbRoomFiles.stream()
-                .map(file -> new DBRoomDTO(file.getFileSize(),file.getFileName(),file.getDescription(),file.getTimestamp(),file.getVerificationCode()))
+                .map(file -> new DBRoomDTO(file.getFileSize(),file.getFileName(),file.getDescription(),file.getTimestamp(),file.getVerificationCode(),file.getUploaderName()))
                 .collect(Collectors.toList());
 
         RoomContentResponse contentResponse = new RoomContentResponse();
-        if(room.getOwner().equals(optionalUser.get())){
-            contentResponse.setIsRoomOwner(true);
-        }else {contentResponse.setIsRoomOwner(false);}
+        if(optionalUser.isPresent()){
+            if(room.getOwner().equals(optionalUser.get())){
+                contentResponse.setIsRoomOwner(true);
+            }else {contentResponse.setIsRoomOwner(false);}
+
+        }
+
 
         contentResponse.setRoomResponse(roomResponse);
         contentResponse.setDbRoomFiles(dtos);

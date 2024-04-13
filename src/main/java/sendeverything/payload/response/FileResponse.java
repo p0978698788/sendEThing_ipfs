@@ -22,8 +22,8 @@ public class FileResponse{
         this.QRCodeImg = QRCodeImg;
 
     }
-    public FileResponse(String fileDownloadUri) {
-        this.fileDownloadUri = fileDownloadUri;
+    public FileResponse(String fileName) {
+        this.fileName = fileName;
 
     }
 

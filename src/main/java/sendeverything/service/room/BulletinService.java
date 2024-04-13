@@ -75,7 +75,7 @@ public class BulletinService {
         roomResponse.setCreateTime(room.getCreateTime());
         // 设置RoomResponse的其他属性...
 
-        boolean isOwner = room.getOwner() != null && currentUser != null && room.getOwner().equals(currentUser);
+        boolean isOwner = room.getOwner() != null && room.getOwner().equals(currentUser);
         roomResponse.setIsOwner(isOwner);
         boolean isMember = userRoomRepository.findByUserAndRoom(currentUser, room) != null;
         roomResponse.setIsMember(isMember);

@@ -15,4 +15,5 @@ public class DBRoomDTO {
     private String description;
     private LocalDateTime timestamp;
     private String verificationCode;
+    private String uploaderName;
 }

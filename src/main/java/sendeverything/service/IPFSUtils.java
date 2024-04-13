@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import sendeverything.models.DatabaseFile;
@@ -27,10 +28,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.*;
 
 
@@ -47,6 +45,8 @@ public class IPFSUtils {
     private  DatabaseFileRepository dbFileRepository;
     @Autowired
     private  FileChunkRepository fileChunkRepository;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 //    private final ExecutorService executorService = Executors.newFixedThreadPool(10); // 根据需要调整线程池大小
 
 
@@ -160,51 +160,161 @@ public class IPFSUtils {
         Multihash filePointer = Multihash.fromBase58(cid);
         return IPFS.cat(filePointer);
     }
+
+
+    public void writeToResponseStreamInBatches(DatabaseFile dbFile, HttpServletResponse response) throws IOException {
+        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
+        int batchSize = 10;  // 每批处理5个分片
+        List<byte[]> batch = new ArrayList<>(batchSize);
+
+        for (FileChunk chunk : chunks) {
+            // 从IPFS下载分片
+            byte[] data = downloadChunk(chunk.getCid());
+            batch.add(data);
+
+            // 检查批量大小，如果达到，则写入响应流
+            if (batch.size() == batchSize) {
+                writeBatchToResponse(batch, response);
+                batch.clear(); // 清空批量缓存，以便下一批处理
+            }
+        }
+
+        // 处理剩余的分片（如果有）
+        if (!batch.isEmpty()) {
+            writeBatchToResponse(batch, response);
+        }
+
+        response.getOutputStream().flush();  // 确保所有内容都已经写入
+    }
+
+    private void writeBatchToResponse(List<byte[]> batch, HttpServletResponse response) throws IOException {
+        for (byte[] data : batch) {
+            response.getOutputStream().write(data);
+        }
+    }
+
+
+
+
+
+
+
+    //流式下載
     public void writeToResponseStreamConcurrently(DatabaseFile dbFile, HttpServletResponse response) throws IOException, InterruptedException, ExecutionException, java.util.concurrent.ExecutionException {
         List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
         ExecutorService executorService = Executors.newFixedThreadPool(10); // 可调整线程池大小
 
-        // 使用 Callable 而不是 Runnable，以便可以返回结果
         List<Callable<byte[]>> tasks = new ArrayList<>();
-
         for (FileChunk chunk : chunks) {
-            tasks.add(() -> downloadChunk(chunk.getCid()));
-            System.out.println(chunk.getId());
+            int chunkNumber = chunk.getChunkNumber(); // 获取分片编号
+            tasks.add(() -> {
+                byte[] data = downloadChunk(chunk.getCid());
+                System.out.println("Chunk " + chunkNumber + " downloaded.");
+                return data;
+            });
         }
 
         List<Future<byte[]>> futures = executorService.invokeAll(tasks);
 
-        // 按原始顺序写入响应流
         for (Future<byte[]> future : futures) {
-            response.getOutputStream().write(future.get());
+            byte[] data = future.get(); // 这里可能抛出异常，表示任务执行失败
+            // 这里不再打印分片编号，因为它们是按顺序处理的
+            response.getOutputStream().write(data);
+            // 适当的位置释放内存
+            Arrays.fill(data, (byte) 0); // 如果适用，可以清除数据
         }
 
         executorService.shutdown(); // 关闭线程池
     }
-//public void writeToResponseStreamConcurrently(DatabaseFile dbFile, HttpServletResponse response) throws IOException {
-//    List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
-//    ExecutorService executorService = Executors.newFixedThreadPool(10); // 可调整线程池大小
+
+
+
+
+
+
+
+//    public void writeToResponseStreamConcurrently3(DatabaseFile dbFile, HttpServletResponse response) throws IOException, java.util.concurrent.ExecutionException, InterruptedException {
+//        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
+//        int batchSize = 5; // 假设每批次处理10个分片
+//        ExecutorService executorService = Executors.newFixedThreadPool(5);
 //
-//    for (FileChunk chunk : chunks) {
-//        executorService.submit(() -> {
-//            byte[] data = downloadChunk(chunk.getCid());
-//            synchronized (response.getOutputStream()) {
-//                response.getOutputStream().write(data);
+//        for (int i = 0; i < chunks.size(); i += batchSize) {
+//            List<FileChunk> batch = chunks.subList(i, Math.min(chunks.size(), i + batchSize));
+//            List<Future<byte[]>> futures = new ArrayList<>();
+//
+//            for (FileChunk chunk : batch) {
+//                Callable<byte[]> task = () -> {
+//                    byte[] data = downloadChunk(chunk.getCid());
+//                    System.out.println("Chunk " + chunk.getChunkNumber() + " downloaded.");
+//                    return data;
+//                };
+//                futures.add(executorService.submit(task));
 //            }
-//            return null;
-//        });
-//    }
 //
-//    executorService.shutdown();
-//    try {
-//        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-//    } catch (InterruptedException e) {
-//        Thread.currentThread().interrupt();  // restore interrupted status
+//            // 在每个批次内，等待所有分片下载完成
+//            for (Future<byte[]> future : futures) {
+//                try {
+//                    byte[] data = future.get();
+//                    response.getOutputStream().write(data);
+//                    Arrays.fill(data, (byte) 0);
+//                } catch (ExecutionException | InterruptedException e) {
+//                    System.err.println("Error processing chunk: " + e.getMessage());
+//                    e.printStackTrace();  // 或者更合适的异常处理逻辑
+//                }
+//            }
+//        }
+//
+//        executorService.shutdown();
 //    }
-//}
 
 
-//    public void writeToResponseStreamConcurrently(DatabaseFile dbFile, HttpServletResponse response) throws IOException, InterruptedException, ExecutionException {
+
+    public void writeToResponseStreamConcurrently3(DatabaseFile dbFile, HttpServletResponse response) throws IOException {
+        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
+        int totalChunks = chunks.size();
+        int batchSize = 5;  // 假设每批次处理5个分片
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        int chunksDownloaded = 0;
+
+        try {
+            for (int i = 0; i < chunks.size(); i += batchSize) {
+                List<FileChunk> batch = chunks.subList(i, Math.min(chunks.size(), i + batchSize));
+                List<Future<byte[]>> futures = new ArrayList<>();
+
+                for (FileChunk chunk : batch) {
+                    Callable<byte[]> task = () -> {
+                        byte[] data = downloadChunk(chunk.getCid());
+                        System.out.println("Chunk " + chunk.getChunkNumber() + " downloaded.");
+                        return data;
+                    };
+                    futures.add(executorService.submit(task));
+                }
+
+                for (Future<byte[]> future : futures) {
+                    try {
+                        byte[] data = future.get();
+                        response.getOutputStream().write(data);
+                        chunksDownloaded++;
+                        double progress = (double) chunksDownloaded / totalChunks * 100;
+                        // 发送进度信息
+                        messagingTemplate.convertAndSend("/topic/downloadProgress", progress);
+
+                        Arrays.fill(data, (byte) 0); // 清理敏感数据
+                    } catch (ExecutionException | InterruptedException e) {
+                        System.err.println("Error processing chunk: " + e.getMessage());
+                        e.printStackTrace();
+                    } catch (java.util.concurrent.ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        } finally {
+            executorService.shutdown();
+        }
+    }
+
+
+    //    public void writeToResponseStreamConcurrently(DatabaseFile dbFile, HttpServletResponse response) throws IOException, InterruptedException, ExecutionException {
 //
 //        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
 //        List<Callable<Void>> tasks = new ArrayList<>();
@@ -242,6 +352,7 @@ public class IPFSUtils {
     public void unpinAndCollectGarbage(DatabaseFile dbFile) throws IOException {
         for (FileChunk chunk : dbFile.getFileChunks()) {
             String cid = chunk.getCid();
+            System.out.println(cid);
             IPFS.pin.rm(Multihash.fromBase58(cid));
             System.out.println("Unpinned CID: " + cid);
         }

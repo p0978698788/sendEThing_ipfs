@@ -40,6 +40,7 @@ public class DBRoomFile {
 
     private String description;
 
+    private String uploaderName;
     @ManyToOne
     @JoinColumn(name = "room_id", nullable = false)
     private Room room;
@@ -58,8 +59,6 @@ public class DBRoomFile {
         this.fileId = fileId;
         this.timestamp = timestamp;
     }
-
-
 
 
 

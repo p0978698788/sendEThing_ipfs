@@ -17,6 +17,7 @@ import sendeverything.models.room.Room;
 import sendeverything.repository.DBRoomFileChunkRepository;
 import sendeverything.repository.DBRoomFileRepository;
 import sendeverything.repository.RoomRepository;
+import software.amazon.awssdk.services.s3.endpoints.internal.Value;
 
 
 import java.io.File;
@@ -74,7 +75,7 @@ public class RoomIPFSUtils {
 
 
 
-    public  synchronized DBRoomFile storeFile(String fileId, String outputFileName, Optional<User> user,Long filesize,String description,String roomCode){
+    public  synchronized DBRoomFile storeFile(String fileId, String outputFileName, Optional<User> user,Long filesize,String description,String roomCode,String uploaderName) {
         // 这里不需要再次检查文件是否存在，因为这已在调用此方法之前检查过
         Room room=roomRepository.findByRoomCode(roomCode);
         LocalDateTime createTime = LocalDateTime.now();
@@ -83,8 +84,12 @@ public class RoomIPFSUtils {
         dbFile.setVerificationCode(generateUniqueVerificationCode());
         dbFile.setFileSize(filesize);
         dbFile.setRoom(room);
+        dbFile.setUploaderName(uploaderName);
         dbFile.setDescription(description);
-        user.ifPresent(dbFile::setUser);
+        user.ifPresent(dbFile::setUser) ;
+
+
+
         dbRoomFileRepository.save(dbFile);
         return dbFile;
     }
