@@ -1,7 +1,9 @@
 package sendeverything.payload.request;
 
+import java.sql.Blob;
 import java.util.Set;
 
+import jakarta.persistence.Lob;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
@@ -21,5 +23,8 @@ public class SignupRequest {
     @NotBlank
     @Size(min = 6, max = 40)
     private String password;
+    @NotBlank
+
+    private byte[] image;
 
 }
