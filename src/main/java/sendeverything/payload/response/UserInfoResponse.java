@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.http.ResponseCookie;
 
+import java.sql.Blob;
 import java.util.List;
 
 @Data
@@ -19,6 +20,9 @@ public class UserInfoResponse {
 	private String email;
 	private List<String> roles;
 	private String provider;
+	private String profileImageBase64;
 	private String accessToken;
+	private String refreshToken;
 	private ResponseCookie jwtCookie;
+	private ResponseCookie RefreshTokenCookie;
 }

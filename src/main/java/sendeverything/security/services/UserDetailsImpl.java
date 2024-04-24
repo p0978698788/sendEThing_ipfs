@@ -1,6 +1,7 @@
 package sendeverything.security.services;
 
 import java.io.Serial;
+import java.sql.Blob;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -30,14 +31,17 @@ public class UserDetailsImpl implements UserDetails {
 
   private Collection<? extends GrantedAuthority> authorities;
 
+  private Blob profileImage;
+
   private String provider;
 
-  public UserDetailsImpl(Long id, String username, String email, String password,
+  public UserDetailsImpl(Long id, String username, String email, String password,Blob profileImage,
       Collection<? extends GrantedAuthority> authorities) {
     this.id = id;
     this.username = username;
     this.email = email;
     this.password = password;
+    this.profileImage = profileImage;
     this.authorities = authorities;
   }
 
@@ -50,7 +54,8 @@ public class UserDetailsImpl implements UserDetails {
         user.getId(), 
         user.getUsername(), 
         user.getEmail(),
-        user.getPassword(), 
+        user.getPassword(),
+        user.getProfileImage(),
         authorities);
   }
 

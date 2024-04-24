@@ -1,5 +1,6 @@
 package sendeverything.models;
 
+import java.sql.Blob;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -49,12 +50,16 @@ public class User {
 
   @Enumerated(EnumType.STRING)
   private Provider provider;
+  @Lob
+  private Blob profileImage;
+  private String imgUrl;
 
-  public User(String username, String email, String password,Provider provider) {
+  public User(String username, String email, String password,Provider provider,Blob profileImage) {
     this.username = username;
     this.email = email;
     this.password = password;
     this.provider = provider;
+    this.profileImage = profileImage;
   }
 
 

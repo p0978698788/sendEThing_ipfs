@@ -11,6 +11,7 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: update
+
     show-sql: false
   security:
     oauth2:
@@ -57,15 +58,17 @@ spring:
 
 bezkoder:
   app:
-    jwtCookieName: bezkoder
+    jwtCookieName: sendEveryThing
+    jwtRefreshCookieName: sendEveryThingRefresh
     jwtSecret: ======================BezKoder=Spring===========================
-    jwtExpirationMs: 36000000
+    jwtExpirationMs: 86400000
+    jwtExpirationRefreshMs: 172800000
 
   filebase:
     AccessKeyId: 9D950C2D6B3E6F122289
     SecretAccessKey: d24dhf1z9Fj6jd6Cn7A2u4u62Xnjh3Z09RvUQsxl
     endpoint: https://s3.filebase.com
 server:
-  port: 8080
+  port: 8088
 
 
