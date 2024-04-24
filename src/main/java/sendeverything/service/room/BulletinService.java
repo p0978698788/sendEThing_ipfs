@@ -10,7 +10,6 @@ import sendeverything.models.room.Room;
 import sendeverything.models.room.RoomType;
 import sendeverything.models.room.UserRoom;
 import sendeverything.payload.response.RoomResponse;
-import sendeverything.repository.DBRoomFileRepository;
 import sendeverything.repository.RoomRepository;
 import sendeverything.repository.UserRepository;
 import sendeverything.repository.UserRoomRepository;
@@ -23,12 +22,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.sql.Blob;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,13 +39,38 @@ public class BulletinService {
         this.userRepository = userRepository;
         this.userRoomRepository = userRoomRepository;
     }
+    private String generateRoomCode() {
+        Random random = new Random();
+        String verificationCode;
+        do {
+            char[] vowels = {'a', 'e', 'i', 'o', 'u'};
+            char[] consonants = {'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v'};
 
+            StringBuilder codeBuilder = new StringBuilder(6);
+            for (int i = 0; i < 8; i++) {
+                // Alternate between consonants and vowels
+                if (i % 2 == 0) { // Even index: consonant
+                    codeBuilder.append(consonants[random.nextInt(consonants.length)]);
+                } else { // Odd index: vowel
+                    codeBuilder.append(vowels[random.nextInt(vowels.length)]);
+                }
+            }
+            verificationCode = codeBuilder.toString().toUpperCase(Locale.ROOT);
+            System.out.println("Verification code: " + verificationCode);
+        } while (isCodeExists(verificationCode));
+
+        return verificationCode;
+    }
+    private  boolean isCodeExists(String code) {
+        return roomRepository.existsByRoomCode(code);
+    }
 
     public String saveRoom(String title, String roomDescription , String roomPassword , MultipartFile roomImage , Optional<User> user, RoomType roomType, BoardType boardType) throws Exception {
         LocalDateTime createTime = LocalDateTime.now();
+        LocalDateTime newTime = createTime.plusHours(8);
         Blob image = convertToBlob(roomImage);
 
-        Room room = new Room(generateRoomCode(8),title,roomDescription,roomPassword,image,roomType,boardType,createTime);
+        Room room = new Room(generateRoomCode(),title,roomDescription,roomPassword,image,roomType,boardType,newTime);
         user.ifPresent(room::setOwner);
         roomRepository.save(room);
         return room.getRoomCode();
@@ -77,7 +97,7 @@ public class BulletinService {
 
         boolean isOwner = room.getOwner() != null && room.getOwner().equals(currentUser);
         roomResponse.setIsOwner(isOwner);
-        boolean isMember = userRoomRepository.findByUserAndRoom(currentUser, room) != null;
+        boolean isMember = userRoomRepository.existsByUserAndRoom(currentUser, room);
         roomResponse.setIsMember(isMember);
 
         return roomResponse;
@@ -114,21 +134,21 @@ public class BulletinService {
     }
 
 
-    public String generateRoomCode(int length) {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        StringBuilder roomCode = new StringBuilder(length);
-        Random random = new Random();
-
-        for (int i = 0; i < length; i++) {
-            int index = random.nextInt(characters.length());
-            roomCode.append(characters.charAt(index));
-        }
-        if(roomRepository.existsByRoomCode(roomCode.toString())) {
-            return generateRoomCode(length);
-        }
-
-        return roomCode.toString();
-    }
+//    public String generateRoomCode(int length) {
+//        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+//        StringBuilder roomCode = new StringBuilder(length);
+//        Random random = new Random();
+//
+//        for (int i = 0; i < length; i++) {
+//            int index = random.nextInt(characters.length());
+//            roomCode.append(characters.charAt(index));
+//        }
+//        if(roomRepository.existsByRoomCode(roomCode.toString())) {
+//            return generateRoomCode(length);
+//        }
+//
+//        return roomCode.toString();
+//    }
     public String hashRoomCode(String data) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -194,7 +214,7 @@ public class BulletinService {
     }
 
     public boolean hasUserJoinedRoom(User user, Room room) {
-        return userRoomRepository.findByUserAndRoom(user, room) != null;
+        return userRoomRepository.existsByUserAndRoom(user, room);
     }
 
 }

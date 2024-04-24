@@ -7,6 +7,7 @@ import lombok.ToString;
 import org.hibernate.annotations.GenericGenerator;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,7 +36,7 @@ public class DatabaseFile {
 	private String verificationCode;
 
 	@OrderBy("timestamp DESC")
-	Instant timestamp = Instant.now();
+	LocalDateTime timestamp;
 
 //	private Uploader uploader;
 
@@ -46,10 +47,9 @@ public class DatabaseFile {
 
 	}
 
-	public DatabaseFile(String fileName, String fileId,Instant timestamp) {
+	public DatabaseFile(String fileName, String fileId,LocalDateTime timestamp) {
 		this.fileName = fileName;
 		this.fileId = fileId;
-
 		this.timestamp = timestamp;
 	}
 

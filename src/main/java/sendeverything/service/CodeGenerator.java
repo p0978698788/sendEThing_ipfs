@@ -19,6 +19,7 @@ import java.sql.Blob;
 import java.sql.SQLException;
 import java.util.Base64;
 import java.util.Random;
+import java.util.UUID;
 
 @Component
 public class CodeGenerator {
@@ -40,6 +41,7 @@ public class CodeGenerator {
     }
 
     public Blob generateAndStoreQRCode(int width, int height, DatabaseFile dbFile) throws WriterException, IOException, SQLException {
+        UUID uuid = UUID.randomUUID();
         // 生成 QR 码
         String fileDownloadUri = "http:/localhost:8080/downloadFileByCode/"+dbFile.getVerificationCode();
 

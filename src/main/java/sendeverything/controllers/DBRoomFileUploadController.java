@@ -74,7 +74,7 @@ public class DBRoomFileUploadController {
                 }
             }
         }
-        DBRoomFileChunk dbRoomFileChunk = dbRoomFileChunkRepository.findByChunkIdAndDbRoomFile_FileId(chunkId, fileId).orElse(null);
+        DBRoomFileChunk dbRoomFileChunk = dbRoomFileChunkRepository.findByChunkIdAndDbRoomFile_FileIdAndDbRoomFile_Room_RoomCode(chunkId, fileId, RoomCode).orElse(null);
 
         if (dbRoomFileChunk == null) {
             IPFSUtils.uploadPart(chunkNumber, dbFile, chunkId, fileChunk, totalChunks);
@@ -105,17 +105,9 @@ public class DBRoomFileUploadController {
 
         System.out.println("Sorted dbFile chunks: " + sortedChunks);
 
-        Blob qrCodeBlob = codeGenerator.generateAndStoreQRCode(350, 350, dbFile);
-        String qrCodeBase64 = codeGenerator.blobToBase64(qrCodeBlob);
-//        List<FileNameAndVerifyCodeProjection> fileNames = fileService.findAllFileNamesAndVerifyCodes();
-//        for (FileNameAndVerifyCodeProjection fileName : fileNames) {
-//            System.out.println("fileName: " + fileName.getFileName());
-//            System.out.println("verificationCode: " + fileName.getVerificationCode());
-//        }
 
-//        System.out.println("fileNames: " + fileNames);
 
-        return new FileResponse(dbFile.getVerificationCode(), qrCodeBase64);
+        return new FileResponse(dbFile.getVerificationCode(), "");
     }
 
 
@@ -138,7 +130,7 @@ public class DBRoomFileUploadController {
 
 
 
-            IPFSUtils.writeToResponseStreamConcurrently(dbFile, response);
+            IPFSUtils.writeToResponseStreamConcurrently3(dbFile, response);
             System.out.println(response.getHeader(HttpHeaders.CONTENT_DISPOSITION));
             return ResponseEntity.ok().build();
 

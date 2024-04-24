@@ -6,8 +6,10 @@ import sendeverything.models.DatabaseFile;
 import sendeverything.models.FileNameAndVerifyCodeProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import sendeverything.models.User;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,11 +22,17 @@ public interface DatabaseFileRepository extends JpaRepository<DatabaseFile, Stri
     List<FileNameAndVerifyCodeProjection> findAllProjectedBy();
 
 
+    @Query("SELECT df FROM DatabaseFile df WHERE df.timestamp < :cutoff")
+    List<DatabaseFile> findAllOlderThanTwoDays(@Param("cutoff") LocalDateTime cutoff);
+
+
 
 
     Optional<DatabaseFile> findByFileName(String fileName);
 
     Optional<DatabaseFile> findByFileId(String fileId);
+
+    List<DatabaseFile>findAllByUserOrderByTimestampDesc(User user);
 
 
 

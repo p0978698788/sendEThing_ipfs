@@ -29,7 +29,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.sql.Blob;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -52,36 +54,34 @@ public class IPFSController {
     private IPFSUtils IPFSUtils;
 
 
+    @GetMapping("getFiles")
+    public ResponseEntity<?> getFiles(Principal principal) {
+        Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
+        if(optionalUser.isEmpty()){
+            return ResponseEntity.ok().body("User is not logged in!");
+        }
+        List<DatabaseFile> dbFiles = dbFileRepository.findAllByUserOrderByTimestampDesc(optionalUser.orElse(null));
+        LocalDateTime now = LocalDateTime.now();
 
-//    @PostMapping("/uploadChunk")
-//    public ResponseEntity<?> uploadChunk(@RequestParam("fileChunk") MultipartFile fileChunk,
-//                                         @RequestParam("chunkNumber") int chunkNumber,
-//                                         @RequestParam("totalChunks") int totalChunks,
-//                                         @RequestParam("fileId") String fileId,
-//                                         @RequestParam("chunkId") String chunkId,
-//                                         @RequestParam("size") String fileSize,
-//                                         @RequestParam("outputFileName") String outputFileName,
-//                                         Principal principal) throws IOException {
-//        System.out.println("Principal: " + principal);
-//        Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
-//
-//
-//        DatabaseFile dbFile= IPFSUtils.storeFile(fileId,outputFileName,optionalUser);
-//
-//
-//        System.out.println("Uploading chunk " + chunkNumber + " of file " + fileId);
-////        FileChunk dbfileChunk = fileChunkRepository.findByChunkId(chunkId).orElse(null);
-//
-//        FileChunk dbfileChunk = fileChunkRepository.findByChunkIdAndDatabaseFile_FileId(chunkId,fileId).orElse(null);
-//        if (dbfileChunk == null) {
-//            IPFSUtils.uploadPart(chunkNumber ,dbFile,chunkId, fileChunk,totalChunks);
-//
-//            return ResponseEntity.ok("Chunk " + chunkNumber + " uploaded successfully");
-//        }else {
-//            System.out.println("Chunk " + chunkNumber + " already uploaded");
-//            return ResponseEntity.ok("Chunk " + chunkNumber + " already uploaded");
-//        }
-//    }
+
+        List<FileNameResponse> fileNameResponses = dbFiles.stream()
+                .map(file -> {
+                    LocalDateTime createTimeTwoDaysLater = file.getTimestamp().plusDays(2);
+                    Duration remainingDuration = Duration.between(now, createTimeTwoDaysLater);
+                    long remainingDays = remainingDuration.toDays(); // 可以選擇以天數來表示
+                    long remainingHours = remainingDuration.toHours()%24; // 或者以小時數來表示
+                    String remainingTimeFormatted = remainingDays + "D " + remainingHours+"H";  // 1 D 23:59
+                    return new FileNameResponse(
+                            file.getFileName(),
+                            file.getVerificationCode(),
+                            file.getFileSize(),
+                            file.getTimestamp()                            ,
+                            remainingTimeFormatted // or remainingDuration in any other unit you prefer
+                    );
+                })
+                .toList();
+        return ResponseEntity.ok().body(fileNameResponses);
+    }
 
 
 
@@ -135,29 +135,28 @@ public class IPFSController {
         }
 
         DatabaseFile dbFile = dbFileOptional.get();
-        List<FileChunk> sortedChunks = dbFile.getFileChunks().stream()
-                .sorted(Comparator.comparingInt(FileChunk::getChunkNumber))
-                .toList();
+        User user = dbFile.getUser();
+        String username;
 
-        System.out.println("Sorted dbFile chunks: " + sortedChunks);
+        if (user != null && user.getUsername() != null) {
+            username = user.getUsername();
+        } else {
+            username = "Anonymous";
+        }
 
-        Blob qrCodeBlob = codeGenerator.generateAndStoreQRCode(350, 350, dbFile);
-        String qrCodeBase64 = codeGenerator.blobToBase64(qrCodeBlob);
-//        List<FileNameAndVerifyCodeProjection> fileNames = fileService.findAllFileNamesAndVerifyCodes();
-//        for (FileNameAndVerifyCodeProjection fileName : fileNames) {
-//            System.out.println("fileName: " + fileName.getFileName());
-//            System.out.println("verificationCode: " + fileName.getVerificationCode());
-//        }
 
-//        System.out.println("fileNames: " + fileNames);
+        System.out.println(username +"completeUpload : " + dbFile.getFileName() +" VerificationCode : "+dbFile.getVerificationCode());
 
-        return new FileResponse(dbFile.getVerificationCode(), qrCodeBase64);
+
+
+        return new FileResponse(dbFile.getVerificationCode(),"");
     }
 
 
 
-    @GetMapping("/downloadFileByCode/{verificationCode}")
-    public ResponseEntity<?> downloadFile(@PathVariable String verificationCode, HttpServletResponse response) {
+    @GetMapping("/downloadFileByCode/{verificationCode}/{uuid}")
+    public ResponseEntity<?> downloadFile(@PathVariable String verificationCode,
+                                          @PathVariable String uuid,HttpServletResponse response) {
         try {
             DatabaseFile dbFile = IPFSUtils.findByVerificationCode(verificationCode);
             if (dbFile == null) {
@@ -176,7 +175,7 @@ public class IPFSController {
 
 
 
-            IPFSUtils.writeToResponseStreamConcurrently3(dbFile, response);
+            IPFSUtils.writeToResponseStreamConcurrently3(dbFile, response,uuid);
             System.out.println(response.getHeader(HttpHeaders.CONTENT_DISPOSITION));
             return ResponseEntity.ok().build();
 
@@ -248,6 +247,23 @@ public class IPFSController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @GetMapping("/deleteFileByCode/{verificationCode}")
+    public ResponseEntity<?> deleteFileByCode(@PathVariable String verificationCode) {
+        try {
+            DatabaseFile dbFile = IPFSUtils.findByVerificationCode(verificationCode);
+            if (dbFile == null) {
+                return ResponseEntity.notFound().build();
+            }
+            dbFileRepository.delete(dbFile);
+
+            return ResponseEntity.ok().body("Cleanup successful for file with verification code: " + verificationCode);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
 
 
@@ -262,48 +278,3 @@ public class IPFSController {
 
 
 
-
-
-//@CrossOrigin(origins = {"http://localhost", "http://localhost:8081, http://localhost:8080"}, allowCredentials = "true")
-//@RestController
-//@RequestMapping("/api/auth")
-//public class IpfsController {
-//
-//    private final IpfsService ipfsService;
-//
-//    public IpfsController(IpfsService ipfsService) {
-//        this.ipfsService = ipfsService;
-//    }
-//
-//    @PostMapping("/upload")
-//    public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
-//        try {
-//            byte[] data = file.getBytes();
-//            String cid = ipfsService.addFile(data);
-//            return new ResponseEntity<>(cid, HttpStatus.OK);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//            return new ResponseEntity<>("Error uploading file to IPFS", HttpStatus.INTERNAL_SERVER_ERROR);
-//        }
-//    }
-//
-//    @GetMapping("/retrieve")
-//    public ResponseEntity<byte[]> retrieveFile(@RequestParam("cid") String cid) {
-//        try {
-//            byte[] data = ipfsService.getFile(cid);
-//            HttpHeaders headers = new HttpHeaders();
-//
-//            headers.setContentDispositionFormData("attachment", cid);
-//            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-//
-//            return ResponseEntity.ok()
-//                    .headers(headers)
-//                    .body(data);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body("Error retrieving file from IPFS".getBytes());
-//        }
-//    }
-//
-//}

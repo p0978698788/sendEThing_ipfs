@@ -9,4 +9,5 @@ public class RoomRequest {
     String roomCode;
     @NotBlank
     String password;
+    String roomType;
 }

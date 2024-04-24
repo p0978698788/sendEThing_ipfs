@@ -6,6 +6,7 @@ import sendeverything.models.room.Room;
 import sendeverything.models.room.UserRoom;
 
 public interface UserRoomRepository extends JpaRepository<UserRoom, Long> {
-    UserRoom findByUserAndRoom(User user, Room room);
+    boolean existsByUserAndRoom(User user, Room room);
+
 
 }

@@ -22,6 +22,8 @@ public class Room {
     private Long id;
     private String roomCode;
     private String title;
+    @Lob
+    @Column(name = "description", nullable = false,columnDefinition = "TEXT")
     private String description;
 
     private String password;

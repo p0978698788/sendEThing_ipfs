@@ -61,12 +61,18 @@ public class BulletinController {
     }
 
     @PostMapping("/accessRoom")
-    public ResponseEntity<?> accessRoom(@RequestBody RoomRequest RoomRequest, HttpServletResponse response,Principal principal){
-        String roomCode = RoomRequest.getRoomCode();
-        String password = RoomRequest.getPassword();
+    public ResponseEntity<?> accessRoom(@RequestBody RoomRequest roomRequest, HttpServletResponse response,Principal principal){
+        String roomCode = roomRequest.getRoomCode();
+        String password = roomRequest.getPassword();
+        String roomType = roomRequest.getRoomType();
+
         Optional<User> optionalUser = principal != null ? userRepository.findByUsername(principal.getName()) : Optional.empty();
         Room room= bulletinService.findByRoomCode1(roomCode);
         RoomResponse roomResponse = bulletinService.accessRoom(roomCode, password);
+        System.out.println("roomResponse: "+roomRequest);
+        if(roomType.equals("PUBLIC")){
+            return ResponseEntity.ok("Access Room Success: "+roomCode);
+        }
         if (roomResponse != null ) {
             // 登入成功，設置 cookie
             String roomCookie= bulletinService.hashRoomCode(roomCode);
@@ -74,7 +80,7 @@ public class BulletinController {
             cookie.setHttpOnly(true); // 使 cookie 為 HTTP Only，提高安全性
             cookie.setPath("/"); // 設置 cookie 的路徑，如果需要限制為特定路徑，可以進行調整
 
-            cookie.setMaxAge(60 * 60 * 24); // 設置 cookie 的有效期，例如這裡是一個小時
+            cookie.setMaxAge(60 * 60 ); // 設置 cookie 的有效期，例如這裡是一個小時
             response.addCookie(cookie);
             bulletinService.joinRoom(optionalUser.orElse(null),room );
             System.out.println("cookie: "+cookie.getValue());
@@ -86,7 +92,13 @@ public class BulletinController {
     @PostMapping("/verifyCookie")
     public ResponseEntity<String> checkCookie(HttpServletRequest request,@RequestBody RoomRequest RoomRequest) {
         String roomCode = RoomRequest.getRoomCode();
+
+        String roomType =bulletinService.findByRoomCode1(roomCode).getRoomType().toString();
+        System.out.println("roomCode: "+roomCode);
         Cookie[] cookies = request.getCookies();
+        if(roomType.equals("PUBLIC")){
+            return ResponseEntity.ok("Authentication passed");
+        }
 
         if (cookies != null && roomCode != null && !roomCode.isEmpty()) {
             for (Cookie cookie : cookies) {
@@ -124,7 +136,7 @@ public class BulletinController {
                 .collect(Collectors.toList());
 
         RoomContentResponse contentResponse = new RoomContentResponse();
-        if(optionalUser.isPresent()){
+        if(optionalUser.isPresent() && room.getOwner() != null){
             if(room.getOwner().equals(optionalUser.get())){
                 contentResponse.setIsRoomOwner(true);
             }else {contentResponse.setIsRoomOwner(false);}

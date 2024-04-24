@@ -18,33 +18,39 @@ import java.util.Optional;
 @Component
 public class CustomerOAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
-    private void setupResponseAndRedirect (HttpServletResponse response, String jwtToken, ResponseCookie jwtCookie) throws IOException {
+    private void setupResponseAndRedirect (HttpServletResponse response, String jwtToken, ResponseCookie jwtCookie,ResponseCookie refreshTokenCookie) throws IOException {
         response.setContentType("application/json;charset=UTF-8");
         response.addHeader("Authorization", "Bearer " + jwtToken);
         response.addHeader("Set-Cookie", jwtCookie.toString());
+        response.addHeader("Set-Cookie", refreshTokenCookie.toString());
         response.setStatus(HttpServletResponse.SC_OK);
         response.sendRedirect("http://localhost:8081/checkGoogle");
     }
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+        System.out.println(authentication);
         DefaultOidcUser oidcUser = (DefaultOidcUser) authentication.getPrincipal();
         String username = oidcUser.getEmail().split("@")[0];
         String email = oidcUser.getEmail();
+        String imgUrl=oidcUser.getPicture();
+        System.out.println(imgUrl);
 
         if(authenticationService.googleUser_inLocal(email)) {
             Optional<User> optionalUser=authenticationService.processGoogleUserInLocal(email);
             if (optionalUser.isPresent()) {
                 User user = optionalUser.get();
                 String jwtToken = jwtUtils.generateTokenFromUsername(user.getUsername());
-                ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(user.getUsername());
-                setupResponseAndRedirect(response, jwtToken, jwtCookie);
+                ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(username);
+                ResponseCookie refreshTokenCookie = jwtUtils.createRefreshTokenCookie(username);
+                setupResponseAndRedirect(response, jwtToken, jwtCookie,refreshTokenCookie);
 
             }
         }else {
-            authenticationService.saveGoogleUser(authentication, username, email);
+            authenticationService.saveGoogleUser(authentication, username, email, imgUrl);
             String jwtToken = jwtUtils.generateTokenFromUsername(username);
-            ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(oidcUser);
-            setupResponseAndRedirect(response, jwtToken, jwtCookie);
+            ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(username);
+            ResponseCookie refreshTokenCookie = jwtUtils.createRefreshTokenCookie(username);
+            setupResponseAndRedirect(response, jwtToken, jwtCookie,refreshTokenCookie);
         }
 
 

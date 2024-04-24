@@ -5,14 +5,26 @@ import io.ipfs.api.MerkleNode;
 import io.ipfs.api.NamedStreamable;
 import io.ipfs.multihash.Multihash;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.transaction.Transactional;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.hibernate.Hibernate;
 import org.hibernate.sql.exec.ExecutionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import sendeverything.models.DatabaseFile;
 import sendeverything.models.FileChunk;
 import sendeverything.models.User;
@@ -28,6 +40,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -47,7 +61,14 @@ public class IPFSUtils {
     private  FileChunkRepository fileChunkRepository;
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+
+
+    private final IPFS IPFS = new IPFS("/ip4/127.0.0.1/tcp/5001");
+
+
 //    private final ExecutorService executorService = Executors.newFixedThreadPool(10); // 根据需要调整线程池大小
+
+
 
 
     public IPFSUtils(DatabaseFileRepository dbFileRepository,FileChunkRepository fileChunkRepository) {
@@ -57,7 +78,9 @@ public class IPFSUtils {
     /**
      * ipfs的服务器地址和端口,替换成自己的ip，port
      */
-    private final IPFS IPFS = new IPFS("/ip4/127.0.0.1/tcp/5001");
+
+    private final String clusterApiUrl = "http://your-cluster-ip:9094";
+//    private final IPFS IPFS = new IPFS("/ip4/127.0.0.1/tcp/5001");
 //    private final IPFS IPFS = new IPFS("/ip4/140.130.33.153/tcp/5001");
 //    private final IPFS IPFS = new IPFS("/ip4/169.254.183.111/tcp/5001");
 
@@ -70,23 +93,13 @@ public class IPFSUtils {
 
 
 
-//    public static synchronized DatabaseFile storeFile(String fileId, String outputFileName, Optional<User> user){
-//        DatabaseFile dbFile = dbFileRepository.findByFileId(fileId).orElse(null);
-//        System.out.println("dbFile: " + dbFile);
-//        if (dbFile == null) {
-//            // 如果不存在，創建並保存 DatabaseFile
-//            dbFile = new DatabaseFile(outputFileName, fileId, Instant.now());
-//            dbFile.setFileId(fileId); // 設置 ID
-//            dbFile.setVerificationCode(generateUniqueVerificationCode());
-//            user.ifPresent(dbFile::setUser);
-//            dbFileRepository.save(dbFile);
-//        }
-//        return dbFile;
-//    }
+
+
 
     public  synchronized DatabaseFile storeFile(String fileId, String outputFileName, Optional<User> user,Long filesize){
         // 这里不需要再次检查文件是否存在，因为这已在调用此方法之前检查过
-        DatabaseFile dbFile = new DatabaseFile(outputFileName, fileId, Instant.now());
+        LocalDateTime createTime = LocalDateTime.now();
+        DatabaseFile dbFile = new DatabaseFile(outputFileName, fileId, createTime);
         dbFile.setFileId(fileId); // 设置 ID
         dbFile.setVerificationCode(generateUniqueVerificationCode());
         dbFile.setFileSize(filesize);
@@ -126,35 +139,7 @@ public class IPFSUtils {
         return data;
     }
 
-    public  void download(String hash, String destFile) {
-        byte[] data = null;
-        try {
-            data = IPFS.cat(Multihash.fromBase58(hash));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        if (data != null && data.length > 0) {
-            File file = new File(destFile);
-            if (file.exists()) {
-                file.delete();
-            }
-            FileOutputStream fos = null;
-            try {
-                fos = new FileOutputStream(file);
-                fos.write(data);
-                fos.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
 
-            }
-        }
-    }
     public byte[] downloadChunk(String cid) throws IOException {
         // 假设 IPFS 已经在构造函数中被初始化
         Multihash filePointer = Multihash.fromBase58(cid);
@@ -162,117 +147,19 @@ public class IPFSUtils {
     }
 
 
-    public void writeToResponseStreamInBatches(DatabaseFile dbFile, HttpServletResponse response) throws IOException {
-        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
-        int batchSize = 10;  // 每批处理5个分片
-        List<byte[]> batch = new ArrayList<>(batchSize);
 
-        for (FileChunk chunk : chunks) {
-            // 从IPFS下载分片
-            byte[] data = downloadChunk(chunk.getCid());
-            batch.add(data);
+    public void updateDownloadProgress(String uuid, double progress) {
 
-            // 检查批量大小，如果达到，则写入响应流
-            if (batch.size() == batchSize) {
-                writeBatchToResponse(batch, response);
-                batch.clear(); // 清空批量缓存，以便下一批处理
-            }
-        }
+        messagingTemplate.convertAndSend("/topic/downloadProgress/" + uuid, progress);
 
-        // 处理剩余的分片（如果有）
-        if (!batch.isEmpty()) {
-            writeBatchToResponse(batch, response);
-        }
-
-        response.getOutputStream().flush();  // 确保所有内容都已经写入
-    }
-
-    private void writeBatchToResponse(List<byte[]> batch, HttpServletResponse response) throws IOException {
-        for (byte[] data : batch) {
-            response.getOutputStream().write(data);
-        }
     }
 
 
 
-
-
-
-
-    //流式下載
-    public void writeToResponseStreamConcurrently(DatabaseFile dbFile, HttpServletResponse response) throws IOException, InterruptedException, ExecutionException, java.util.concurrent.ExecutionException {
-        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
-        ExecutorService executorService = Executors.newFixedThreadPool(10); // 可调整线程池大小
-
-        List<Callable<byte[]>> tasks = new ArrayList<>();
-        for (FileChunk chunk : chunks) {
-            int chunkNumber = chunk.getChunkNumber(); // 获取分片编号
-            tasks.add(() -> {
-                byte[] data = downloadChunk(chunk.getCid());
-                System.out.println("Chunk " + chunkNumber + " downloaded.");
-                return data;
-            });
-        }
-
-        List<Future<byte[]>> futures = executorService.invokeAll(tasks);
-
-        for (Future<byte[]> future : futures) {
-            byte[] data = future.get(); // 这里可能抛出异常，表示任务执行失败
-            // 这里不再打印分片编号，因为它们是按顺序处理的
-            response.getOutputStream().write(data);
-            // 适当的位置释放内存
-            Arrays.fill(data, (byte) 0); // 如果适用，可以清除数据
-        }
-
-        executorService.shutdown(); // 关闭线程池
-    }
-
-
-
-
-
-
-
-//    public void writeToResponseStreamConcurrently3(DatabaseFile dbFile, HttpServletResponse response) throws IOException, java.util.concurrent.ExecutionException, InterruptedException {
-//        List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
-//        int batchSize = 5; // 假设每批次处理10个分片
-//        ExecutorService executorService = Executors.newFixedThreadPool(5);
-//
-//        for (int i = 0; i < chunks.size(); i += batchSize) {
-//            List<FileChunk> batch = chunks.subList(i, Math.min(chunks.size(), i + batchSize));
-//            List<Future<byte[]>> futures = new ArrayList<>();
-//
-//            for (FileChunk chunk : batch) {
-//                Callable<byte[]> task = () -> {
-//                    byte[] data = downloadChunk(chunk.getCid());
-//                    System.out.println("Chunk " + chunk.getChunkNumber() + " downloaded.");
-//                    return data;
-//                };
-//                futures.add(executorService.submit(task));
-//            }
-//
-//            // 在每个批次内，等待所有分片下载完成
-//            for (Future<byte[]> future : futures) {
-//                try {
-//                    byte[] data = future.get();
-//                    response.getOutputStream().write(data);
-//                    Arrays.fill(data, (byte) 0);
-//                } catch (ExecutionException | InterruptedException e) {
-//                    System.err.println("Error processing chunk: " + e.getMessage());
-//                    e.printStackTrace();  // 或者更合适的异常处理逻辑
-//                }
-//            }
-//        }
-//
-//        executorService.shutdown();
-//    }
-
-
-
-    public void writeToResponseStreamConcurrently3(DatabaseFile dbFile, HttpServletResponse response) throws IOException {
+    public void writeToResponseStreamConcurrently3(DatabaseFile dbFile, HttpServletResponse response, String uuid) throws IOException {
         List<FileChunk> chunks = fileChunkRepository.findByDatabaseFileOrderByChunkNumberAsc(dbFile);
         int totalChunks = chunks.size();
-        int batchSize = 5;  // 假设每批次处理5个分片
+        int batchSize = 5;
         ExecutorService executorService = Executors.newFixedThreadPool(5);
         int chunksDownloaded = 0;
 
@@ -296,20 +183,30 @@ public class IPFSUtils {
                         response.getOutputStream().write(data);
                         chunksDownloaded++;
                         double progress = (double) chunksDownloaded / totalChunks * 100;
-                        // 发送进度信息
-                        messagingTemplate.convertAndSend("/topic/downloadProgress", progress);
-
-                        Arrays.fill(data, (byte) 0); // 清理敏感数据
-                    } catch (ExecutionException | InterruptedException e) {
+                        updateDownloadProgress(uuid, progress);
+                        Arrays.fill(data, (byte) 0);
+                    } catch (ExecutionException | InterruptedException | java.util.concurrent.ExecutionException e) {
                         System.err.println("Error processing chunk: " + e.getMessage());
+                        if (e.getCause() instanceof IOException) {
+                            throw (IOException) e.getCause(); // 抛出IOException来处理客户端断开连接的情况
+                        }
                         e.printStackTrace();
-                    } catch (java.util.concurrent.ExecutionException e) {
-                        throw new RuntimeException(e);
                     }
                 }
             }
+        } catch (IOException e) {
+            System.err.println("Client aborted connection: " + e.getMessage());
+            // 处理客户端中断连接的情况，例如可以选择不再写入响应
         } finally {
             executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException ex) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -348,7 +245,6 @@ public class IPFSUtils {
     public  DatabaseFile findByVerificationCode(String verificationCode) {
         return dbFileRepository.findByVerificationCode(verificationCode).orElse(null);
     }
-
     public void unpinAndCollectGarbage(DatabaseFile dbFile) throws IOException {
         for (FileChunk chunk : dbFile.getFileChunks()) {
             String cid = chunk.getCid();
@@ -361,7 +257,28 @@ public class IPFSUtils {
         dbFileRepository.delete(dbFile);
         System.out.println("Garbage collection executed.");
     }
+
+    @Scheduled(cron = "0 0 * * * *")  // 每小時執行一次
+    @Transactional
+    public void cleanupOldFiles() throws IOException {
+        LocalDateTime twoDaysAgo = LocalDateTime.now().minusDays(2).plusHours(8);
+        List<DatabaseFile> oldFiles = dbFileRepository.findAllOlderThanTwoDays(twoDaysAgo);
+        for (DatabaseFile file : oldFiles) {
+                System.out.println("Cleaning up old file: " + file.getFileChunks());
+                unpinAndCollectGarbage(file);
+            }
+        }
+
+
+
+
+
+
+
+
+
 }
+
 
 
 

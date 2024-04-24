@@ -17,13 +17,9 @@ public interface DBRoomFileChunkRepository extends JpaRepository<DBRoomFileChunk
 
 
 
-    Optional<DBRoomFileChunk> findByChunkIdAndDbRoomFile_FileId(String chunkId, String fileId);
+    Optional<DBRoomFileChunk>findByChunkIdAndDbRoomFile_FileIdAndDbRoomFile_Room_RoomCode(String chunkId, String fileId, String roomCode);
 
 
 
-//    @Query("SELECT fc.chunkNumber AS chunkNumber, fc.eTag AS eTag FROM FileChunk fc WHERE fc.databaseFile.fileId = :fileId ORDER BY fc.chunkNumber ASC")
-//    List<FileChunkProjection> findChunkNumberAndETagByDatabaseFile_FileIdOrderByChunkNumberAsc(@Param("fileId") String fileId);
-
-//    List<FileChunk> testFindChunksByDatabaseFile_FileId(@Param("fileId") String fileId);
 
 }
