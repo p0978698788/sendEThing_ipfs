@@ -30,7 +30,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-@CrossOrigin(origins = {"http://localhost", "http://localhost:8081, http://localhost:8080"}, allowCredentials = "true")
+//@CrossOrigin(origins = {"http://localhost", "http://localhost:8081, http://localhost:8080"}, allowCredentials = "true")
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class DBRoomFileUploadController {
@@ -125,10 +126,6 @@ public class DBRoomFileUploadController {
             response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(dbFile.getFileSize()));
             response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFileName);
             response.setHeader(HttpHeaders.CONTENT_TYPE,"application/octet-stream");
-
-
-
-
 
             IPFSUtils.writeToResponseStreamConcurrently3(dbFile, response);
             System.out.println(response.getHeader(HttpHeaders.CONTENT_DISPOSITION));

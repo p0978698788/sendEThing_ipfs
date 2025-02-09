@@ -62,7 +62,8 @@ public class RoomIPFSUtils {
     /**
      * ipfs的服务器地址和端口,替换成自己的ip，port
      */
-    private final IPFS IPFS = new IPFS("/ip4/127.0.0.1/tcp/5001");
+//    private final IPFS IPFS = new IPFS("/ip4/172.21.128.1/tcp/5001");
+    private final IPFS IPFS = new IPFS("/ip4/125.228.100.104/tcp/5001");
 //    private final IPFS IPFS = new IPFS("/ip4/140.130.33.153/tcp/5001");
 //    private final IPFS IPFS = new IPFS("/ip4/169.254.183.111/tcp/5001");
 
@@ -232,7 +233,7 @@ public class RoomIPFSUtils {
             System.out.println("Unpinned CID: " + cid);
         }
 
-        IPFS.repo.gc();
+
         dbRoomFileRepository.delete(dbFile);
         System.out.println("Garbage collection executed.");
     }

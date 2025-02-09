@@ -6,7 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.util.Base64Utils;
+
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -38,6 +38,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Service;
 
 import javax.sql.rowset.serial.SerialBlob;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Blob;
@@ -59,6 +60,27 @@ public class AuthenticationService {
     private final WebClient webClient;
 
 
+
+
+    public String getProfileImageBase64(String username) throws SQLException, IOException {
+//        System.out.println(username);
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User Not Found with username: " + username));
+        if (user.getImgUrl() != null) {
+            return getImageAsBase64(user.getImgUrl()).block();
+        }else{
+            return convertBlobToBase64(user.getProfileImage());
+        }
+
+    }
+
+
+    public String getImgUrl(String username) {
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User Not Found with username: " + username));
+        return user.getImgUrl();
+    }
+
+
+
     public Mono<String> getImageAsBase64(String imageUrl) {
         return webClient.get()
                 .uri(imageUrl)
@@ -78,7 +100,8 @@ public class AuthenticationService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .accessToken(jwtToken)
-                .profileImageBase64(profileImageBase64)
+                .imgUrl(user.getImgUrl())
+                .profileImage(profileImageBase64)
                 .build();
     }
 
@@ -134,24 +157,37 @@ public class AuthenticationService {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
-        String profileImageBase64 = convertBlobToBase64(userDetails.getProfileImage());
+
 
         return UserInfoResponse.builder()
                 .id(userDetails.getId())
                 .username(userDetails.getUsername())
                 .email(userDetails.getEmail())
                 .roles(roles)
-                .profileImageBase64(profileImageBase64)
+                .imgUrl(userDetails.getImgUrl())
+                .profileImage(getProfileImageBase64(username))
                 .accessToken(jwtToken)
                 .refreshToken(refreshToken)
                 .jwtCookie(jwtCookie)
                 .RefreshTokenCookie(refreshTokenCookie)
                 .build();
     }
+
     public String convertBlobToBase64(Blob imageBlob) throws SQLException, IOException {
         InputStream inputStream = imageBlob.getBinaryStream();
         byte[] bytes = inputStream.readAllBytes();
         return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    public  Blob convertBase64ToBlob(String base64String) throws SQLException {
+        byte[] bytes = Base64.getDecoder().decode(base64String);
+        try (InputStream inputStream = new ByteArrayInputStream(bytes)) {
+            // 创建Blob对象
+            Blob blob = new javax.sql.rowset.serial.SerialBlob(bytes);
+            return blob;
+        } catch (Exception e) {
+            throw new SQLException("Error converting Base64 string to Blob: " + e.getMessage());
+        }
     }
 
     public Blob convertToBlob(MultipartFile file) throws Exception {
@@ -165,6 +201,7 @@ public class AuthenticationService {
         if (userRepository.existsByUsername(username)) {
             return new MessageResponse("Error: Username is already taken!");
         }
+
         User user = new User(username,
                 email,
                 encoder.encode(password),
@@ -228,6 +265,7 @@ public class AuthenticationService {
     public ResponseEntity<?> checkAuth(HttpServletRequest request, HttpServletResponse response) {
         try {
             String jwt = jwtUtils.getJwtFromCookies(request);
+            System.out.println("jwt: "+jwt);
             jwtUtils.validateJwtToken(jwt);  // Validates and throws exceptions if valid
             Optional<User> user = userRepository.findByUsername(jwtUtils.getUserNameFromJwtToken(jwt));
             if (user.isEmpty()) {
@@ -247,6 +285,7 @@ public class AuthenticationService {
                 try {
                     jwtUtils.validateJwtToken(refreshToken);  // Validate refresh token
 
+
                     Optional<User> user = userRepository.findByUsername(jwtUtils.getUserNameFromJwtToken(refreshToken));
                     if (user.isEmpty()) {
                         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("Error: User not found!"));
@@ -254,7 +293,7 @@ public class AuthenticationService {
                     String newJwt = jwtUtils.generateTokenFromUsername(user.get().getUsername());
 
                     String newRefreshToken = jwtUtils.generateRefreshToken(user.get().getUsername());  // Optionally regenerate the refresh token
-
+                    System.out.println("newRefreshToken: "+newRefreshToken);
                     // Update client's JWT and Refresh Token in cookies
                     ResponseCookie newJwtCookie = jwtUtils.generateJwtCookie(newJwt);
                     ResponseCookie newRefreshTokenCookie = jwtUtils.createRefreshTokenCookie(newRefreshToken);

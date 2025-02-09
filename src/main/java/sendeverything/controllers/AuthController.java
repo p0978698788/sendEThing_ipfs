@@ -36,13 +36,7 @@ public class AuthController {
   private final AuthenticationService service;
   private final JwtUtils jwtUtils;
   private final WebClient webClient;
-  public Mono<String> getImageAsBase64(String imageUrl) {
-    return webClient.get()
-            .uri(imageUrl)
-            .retrieve()
-            .bodyToMono(byte[].class)
-            .map(bytes -> Base64.getEncoder().encodeToString(bytes)); // Convert to Base64 string
-  }
+
 
 
 //  @GetMapping("/oauth2/redirect")
@@ -66,7 +60,7 @@ public class AuthController {
 //  }
 
   @GetMapping("/oauth2/redirect")
-  public ResponseEntity<?> oauth2Redirect(@CookieValue(name = "sendEverything", required = false) String jwt) {
+  public ResponseEntity<?> oauth2Redirect(@CookieValue(name = "sendEveryThing", required = false) String jwt) {
     if (jwt != null) {
       String username = jwtUtils.getUserNameFromJwtToken(jwt);
       UserInfoResponse userInfoResponse = service.processOAuthPostLogin(username);
@@ -79,8 +73,6 @@ public class AuthController {
       return ResponseEntity.badRequest().body(new MessageResponse("Error: Login failed!"));
     }
   }
-
-
 
 
 
